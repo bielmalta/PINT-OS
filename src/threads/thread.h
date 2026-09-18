@@ -91,7 +91,9 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
+    struct list_elem elem;
+    int64_t wake_tick;
+    struct list_elem sleep_elem;              
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

@@ -19,6 +19,7 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
+static struct list sleep_list;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -27,6 +28,8 @@ static unsigned loops_per_tick;
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
+static bool wake_tick_less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
@@ -35,6 +38,7 @@ static void real_time_delay (int64_t num, int32_t denom);
 void
 timer_init (void) 
 {
+  list_init (&sleep_list);
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -82,6 +86,15 @@ int64_t
 timer_elapsed (int64_t then) 
 {
   return timer_ticks () - then;
+}
+
+static bool
+wake_tick_less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  const struct thread *ta = list_entry (a, struct thread, sleep_elem);
+  const struct thread *tb = list_entry (b, struct thread, sleep_elem);
+
+  return ta->wake_tick < tb->wake_tick;
 }
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
